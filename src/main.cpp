@@ -14,13 +14,18 @@ const int AUDIO_PIN = 6;
 const int BUTTON_PIN = 2;
 const int LED_PIN = 13;
 const int DOT_LEN = 200;     // length of the morse code 'dot'
+const int POT_PIN = A0;
 
+
+const int MIN_DOT_LEN = 0;
+const int MAX_DOT_LEN = 1000;
 
 // morse code and values
 const char* codes[36] = {".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..", ".---", "-.-", ".-..", "--", "-.", "---", ".--.", "--.-", ".-.", "...", "-", "..-", "...-", ".--", "-..-", "-.--", "--..", ".----", "..---", "...--", "....-", ".....", "-....", "--...", "---..", "----.", "-----"};
 const char values[36] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', '1', '2', '3', '4', '5', '6', '7', '8', '9', '0'};
 
 // Morse code rules
+int dotLen = DOT_LEN;
 int dashLen = DOT_LEN * 3;    // length of the morse code 'dash'
 int elemPause = DOT_LEN;  // length of the pause between elements of a character
 int charPause = DOT_LEN * 3;     // length of the spaces between characters
@@ -49,6 +54,14 @@ int symbolCursor = 0;
 const int msgRow = 1;
 const int symbolRow = 0;
 
+void updateTiming(int newUnit) {
+  dotLen = newUnit;
+  dashLen = newUnit * 3;    // length of the morse code 'dash'
+  elemPause = newUnit;  // length of the pause between elements of a character
+  charPause = newUnit * 3;     // length of the spaces between characters
+  wordPause = newUnit * 7;
+}
+
 //Maps morse code to its approprate char
 char mapChar(const char* code) {
 	for(int i = 0;i < 38;++i) {
@@ -66,6 +79,11 @@ String mapSymbol(const char c) {
 		}
 	}
 	return "?";
+}
+
+// is val equal to expected, +- the variance
+bool plusMinus(int val, int expected, int variance) {
+  return (val == expected || abs(expected - val) <= variance);
 }
 
 // Function that returns a translated string from morse
@@ -129,7 +147,7 @@ void clearRow(int row) {
 void beepForSymbol(char symbol) {
   if (symbol == '.') {
     beep(true);
-    delay(DOT_LEN);
+    delay(dotLen);
     beep(false);
   } else if (symbol == '-') {
     beep(true);
@@ -196,8 +214,10 @@ void setup() {
   pinMode(BUTTON_PIN, INPUT);
   pinMode(AUDIO_PIN, OUTPUT);
   pinMode(LED_PIN, OUTPUT);
+  pinMode(POT_PIN, INPUT);
   // set up the LCD's number of columns and rows:
   lcd.begin(LCD_COLS, LCD_ROWS);
+  updateTiming(DOT_LEN);
   // Print a message to the LCD.
   String output = outCode("READY");
   lcd.setCursor(0, symbolRow);
@@ -206,9 +226,17 @@ void setup() {
   lcd.print("READY");
   demoSpeed();
 }
+int val = 0;
 
 void loop() {
-
+  val = map(analogRead(POT_PIN), 0, 1023, MIN_DOT_LEN, MAX_DOT_LEN);
+  if (!plusMinus(val, dotLen, 15)) {
+    updateTiming(val);
+    lcd.setCursor(7, symbolRow);
+    lcd.print(val);
+    Serial.print(val);
+    demoSpeed();
+  }
   buttonState = digitalRead(BUTTON_PIN);
   bool isPressed = digitalRead(BUTTON_PIN) == HIGH;
   beep(isPressed);
